@@ -1,0 +1,51 @@
+name: Decompile APK from Google Drive
+on:
+  workflow_dispatch:
+
+jobs:
+  decompile_process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download APK from Google Drive
+        run: |
+          # File ID: 1RpbZZkhPcgapFCzbtHCeMrhNJ5NuY0AY
+          FILE_ID="1RpbZZkhPcgapFCzbtHCeMrhNJ5NuY0AY"
+          
+          # More reliable download method for Google Drive
+          wget --no-check-certificate 'https://docs.google.com/uc?export=download&id='${FILE_ID} -O granny_mod.apk
+          
+          # Check if the file is actually an APK or an HTML error page
+          if grep -q "<html>" granny_mod.apk; then
+            echo "Error: Downloaded an HTML page instead of the APK. Check link permissions."
+            exit 1
+          fi
+
+      - name: Install JADX
+        run: |
+          wget https://github.com/skylot/jadx/releases/download/v1.4.7/jadx-1.4.7.zip
+          unzip jadx-1.4.7.zip -d jadx_tool
+          echo "$(pwd)/jadx_tool/bin" >> $GITHUB_PATH
+
+      - name: Decompile APK
+        run: |
+          # Create the directory first to ensure it exists
+          mkdir -p source_code
+          # Run jadx and output to the folder
+          jadx -d source_code granny_mod.apk || echo "JADX finished with some warnings"
+
+      - name: Upload Extracted Source Code
+        if: always() # Runs even if JADX had warnings
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granny-Mod-Source-Code
+          path: source_code/
+          
