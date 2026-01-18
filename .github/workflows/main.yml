@@ -1,0 +1,44 @@
+name: Decompile APK from Google Drive
+on:
+  workflow_dispatch: # Allows you to trigger this manually from the Actions tab
+
+jobs:
+  decompile_process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download APK from Google Drive
+        run: |
+          # The File ID from your link: 1RpbZZkhPcgapFCzbtHCeMrhNJ5NuY0AY
+          FILE_ID="1RpbZZkhPcgapFCzbtHCeMrhNJ5NuY0AY"
+          
+          # Script to handle Google Drive's "large file/virus scan" bypass
+          curl -sc /tmp/cookie "https://drive.google.com/uc?export=download&id=${FILE_ID}" > /dev/null
+          CONFIRM=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate "https://docs.google.com/uc?export=download&id=${FILE_ID}" -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')
+          wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=${CONFIRM}&id=${FILE_ID}" -O granny_mod.apk
+
+      - name: Install JADX Decompiler
+        run: |
+          wget https://github.com/skylot/jadx/releases/download/v1.4.7/jadx-1.4.7.zip
+          unzip jadx-1.4.7.zip -d jadx_tool
+          echo "$(pwd)/jadx_tool/bin" >> $GITHUB_PATH
+
+      - name: Decompile APK to Source Code
+        run: |
+          # This extracts the APK and turns it into Java code in the 'source_code' folder
+          jadx -d source_code granny_mod.apk
+
+      - name: Upload Extracted Source Code
+        uses: actions/upload-artifact@v4
+        with:
+          name: Granny-Mod-Source-Code
+          path: source_code/
+          
